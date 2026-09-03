@@ -26,7 +26,7 @@ enable:
   download_osm_data: true #VS false # If 'true', OpenStreetMap data will be downloaded for the above given countries
   download_global_buildings: false # If 'true', GlobalMLBuildingFootprints data will be downloaded for the above given countries
   build_natura_raster: false # If 'true', then an exclusion raster will be build. Otherwise use pregenerated raster.
-  build_cutout: true #VSfalse
+  build_cutout: false
   # If "build_cutout" : true, then environmental data is extracted according to `snapshots` date range and `countries`
   # requires cds API key https://cds.climate.copernicus.eu/how-to-api
   # More information https://atlite.readthedocs.io/en/latest/introduction.html#datasets
@@ -225,7 +225,7 @@ electricity:
   custom_powerplants:
     method: "replace"
     filepaths:
-      - "data/custom/NZ/powerplants(with2030pipeline).csv"
+      - "data/custom/NZ/powerplants(with2030pipeline)_coordinates_filled.csv"
   conventional_carriers: [nuclear, oil, OCGT, CCGT, coal, lignite, geothermal, biomass]
   renewable_carriers: [solar, onwind, hydro] #offwind-ac, offwind-dc
 
