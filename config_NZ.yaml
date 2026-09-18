@@ -19,11 +19,11 @@ countries: ["NZ"]
 # Can be replaced by country ["NG", "BJ"], continent ["Africa"] or user-specific region, see more at https://pypsa-earth.readthedocs.io/en/latest/user-guide/configuration/#top-level-configuration
 
 enable:
-  retrieve_databundle: true #VS false #  Recommended 'true', for the first run. Otherwise data might be missing.
+  retrieve_databundle: false #  Recommended 'true', for the first run. Otherwise data might be missing.
   retrieve_databundle_sector: true #VS false
   retrieve_cost_data: true # true: retrieves cost data from technology data and saves in resources/costs.csv, false: uses cost data in data/costs.csv
   retrieve_cutout: false
-  download_osm_data: true #VS false # If 'true', OpenStreetMap data will be downloaded for the above given countries
+  download_osm_data: false #VS false # If 'true', OpenStreetMap data will be downloaded for the above given countries
   download_global_buildings: false # If 'true', GlobalMLBuildingFootprints data will be downloaded for the above given countries
   build_natura_raster: false # If 'true', then an exclusion raster will be build. Otherwise use pregenerated raster.
   build_cutout: false
@@ -525,7 +525,7 @@ fossil_reserves:
 export:
   endogenous: false # If true, the export demand is endogenously determined by the model
   endogenous_price: 400 # EUR/MWh # Market price, for which the hydrogen for endogenous exports is sold. Only considered, if ["export"]["endogenous"] is set to true.
-  store: true # [True, False] # specifies whether an export store to balance demand is implemented
+  store: false # [True, False] # specifies whether an export store to balance demand is implemented
   store_capital_costs: "no_costs" # ["standard_costs", "no_costs"] # specifies the costs of the export store. "standard_costs" takes CAPEX of "hydrogen storage tank type 1 including compressor"
   h2export: [10] # Yearly export demand in TWh. Only considered, if ["export"]["endogenous"] is set to false
   export_profile: "ship" # use "ship" or "constant". Only considered, if ["export"]["endogenous"] is set to false
@@ -570,16 +570,16 @@ existing_capacities:
 
 sector:
   enable:
-    heat: true
-    biomass: true
-    industry: true
-    shipping: true
-    aviation: true
-    land_transport: true
-    rail_transport: true
-    agriculture: true
-    residential: true
-    services: true
+    heat: false
+    biomass: false
+    industry: false
+    shipping: false
+    aviation: false
+    land_transport: false
+    rail_transport: false
+    agriculture: false
+    residential: false
+    services: false
 
   gas:
     spatial_gas: true # ALWAYS TRUE
@@ -600,7 +600,7 @@ sector:
     set_color_shares: false
     blue_share: 0.40
     pink_share: 0.05
-    production_technologies: ["H2 Electrolysis", "SMR", "SMR CC"] # ["Alkaline electrolyzer large", "Alkaline electrolyzer medium", "Alkaline electrolyzer small", "PEM electrolyzer", "SOEC", "Solid biomass steam reforming", "Biomass gasification", "Biomass gasification CC", "Natural gas steam reforming", "Natural gas steam reforming CC", "Coal gasification", "Coal gasification CC", "Heavy oil partial oxidation"] a list of H2 production technologies that can be added
+    production_technologies: ["H2 Electrolysis"] #, "SMR", "SMR CC"] # ["Alkaline electrolyzer large", "Alkaline electrolyzer medium", "Alkaline electrolyzer small", "PEM electrolyzer", "SOEC", "Solid biomass steam reforming", "Biomass gasification", "Biomass gasification CC", "Natural gas steam reforming", "Natural gas steam reforming CC", "Coal gasification", "Coal gasification CC", "Heavy oil partial oxidation"] a list of H2 production technologies that can be added
 
   coal:
     spatial_coal: true
@@ -613,8 +613,8 @@ sector:
     spatial_oil: true
 
   ammonia:
-    enable: true
-    spatial_ammonia: true
+    enable: false
+    spatial_ammonia: false
     production_year: 2019 # 2019 - 2023 are available
     gas_MWh_per_tNH3: 7.81   # MWh natural gas per tNH3 (SMR eff.=0.76, HB H2-input=1.1484 MWh_H2/MWh_NH3, NH3 LHV=5.167 MWh/t)
     elec_MWh_per_tNH3: 1.278  # MWh electricity per tNH3 (HB elec-input=0.2473 MWh_el/MWh_NH3, NH3 LHV=5.167 MWh/t)
@@ -741,10 +741,10 @@ sector:
 
   # ------------------- ELECTRICITY DISTRIBUTION GRID -------------------
 
-  electricity_distribution_grid: true # adds low voltage buses and shifts AC loads, BEVs, heat pumps, and resistive heaters, micro CHPs to low voltage buses if technologies are present
+  electricity_distribution_grid: false # adds low voltage buses and shifts AC loads, BEVs, heat pumps, and resistive heaters, micro CHPs to low voltage buses if technologies are present
   enable_electricity_connection_cost: false # adds electricity grid connection costs to fixed capital costs for solar and onwind generators in prepare_sector_network.
   solar_rooftop: # adds distribution side customer rooftop PV (only work if electricity_distribution_grid: true)
-    enable: true
+    enable: false
     kW_per_m2: 0.1
     m2_per_person: 20
     use_building_size: false
@@ -759,7 +759,7 @@ sector:
      # maximum distance [km] to allocate a building within the nearest bus shapes
     tolerance: 100
 
-  home_battery: true # adds home batteries to low voltage buses ((only work if electricity_distribution_grid: true)
+  home_battery: false # adds home batteries to low voltage buses ((only work if electricity_distribution_grid: true)
   transmission_efficiency:
     electricity distribution grid:
       efficiency_static: 0.97 # efficiency of distribution grid (i.e. 3% loses)
@@ -786,16 +786,16 @@ sector:
 
   # ------------------- CCUS & CONVERSION OPTIONS -------------------
 
-  co2_network: true
+  co2_network: false
   co2_sequestration_potential: 200 #MtCO2/a sequestration potential for Europe
   co2_sequestration_cost: 10 #EUR/tCO2 for sequestration of CO2
 
-  methanation: true
-  helmeth: true
-  dac: true
+  methanation: false
+  helmeth: false
+  dac: false
   cc_fraction: 0.9
-  cc: true
-  fischer_tropsch: true
+  cc: false
+  fischer_tropsch: false
   min_part_load_fischer_tropsch: 0.9
 
   # ------------------- INDUSTRY OPTIONS -------------------

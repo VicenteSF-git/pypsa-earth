@@ -61,7 +61,7 @@ def select_ports(n):
             "No hydrogen export ports are found. Setting all hydrogen buses as export nodes"
         )
     else:
-        hydrogen_buses_ports = n.buses.loc[ports_sel.index + " H2"]
+        hydrogen_buses_ports = n.buses.loc[ports_sel.index + "_AC H2"]
 
     hydrogen_buses_ports.index.name = "Bus"
 
