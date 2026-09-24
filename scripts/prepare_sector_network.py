@@ -975,7 +975,212 @@ def add_hydrogen(n: pypsa.Network, costs: pd.DataFrame) -> None:
                 p_nom_extendable=True,
                 # lifetime=costs.at["battery inverter", "lifetime"],
             )
+def add_uhs_sites(n, sites_path, planning_year, seasonal_operation=None):
+    """
+    Add site-specific underground hydrogen storage (UHS).
 
+    Representation per site:
+        system H2 bus
+            -> injection Link
+            -> site-specific UHS bus
+            -> Store
+
+        site-specific UHS bus
+            -> withdrawal Link
+            -> system H2 bus
+
+    Compression electricity is represented as an additional input
+    from the corresponding AC bus.
+    """
+    seasonal_operation = seasonal_operation or {}
+
+    sites = pd.read_csv(sites_path)
+
+    if sites.empty:
+        logger.info("No UHS sites found.")
+        return
+
+    planning_year = int(planning_year)
+
+    sites = sites[
+        sites["available_year"].fillna(planning_year).astype(int)
+        <= planning_year
+    ]
+
+    if sites.empty:
+        logger.info("No UHS sites available by %s.", planning_year)
+        return
+
+    # Candidate H2 buses
+    h2_mask = (
+        n.buses.index.to_series().astype(str).str.endswith(" H2")
+        | n.buses["carrier"].astype(str).eq("H2")
+    )
+
+    h2_buses = n.buses.loc[h2_mask].copy()
+
+    h2_buses = h2_buses[
+        h2_buses["x"].notna()
+        & h2_buses["y"].notna()
+    ]
+
+    if h2_buses.empty:
+        raise RuntimeError("No H2 buses with coordinates found in network.")
+
+    for _, site in sites.iterrows():
+
+        site_id = str(site["site_id"])
+        lat = float(site["lat"])
+        lon = float(site["lon"])
+
+        # --------------------------------------------------------------
+        # Map site to nearest H2 bus
+        # Temporary proof-of-concept mapping.
+        # Later this can be replaced by lat/lon -> region polygon mapping.
+        # --------------------------------------------------------------
+        distance2 = (
+            (h2_buses["x"].astype(float) - lon) ** 2
+            + (h2_buses["y"].astype(float) - lat) ** 2
+        )
+
+        h2_bus = distance2.idxmin()
+
+        # PyPSA-Earth sector buses normally follow:
+        # NZ.xx_AC      -> electricity
+        # NZ.xx_AC H2   -> hydrogen
+        if h2_bus.endswith(" H2"):
+            ac_bus = h2_bus[:-3]
+        else:
+            raise RuntimeError(
+                f"Cannot infer electricity bus from H2 bus '{h2_bus}'."
+            )
+
+        if ac_bus not in n.buses.index:
+            raise RuntimeError(
+                f"Electricity bus '{ac_bus}' not found for UHS site {site_id}."
+            )
+
+        uhs_bus = f"{site_id} UHS"
+
+        logger.info(
+            "Adding UHS site %s at H2 bus %s / electricity bus %s",
+            site_id,
+            h2_bus,
+            ac_bus,
+        )
+
+        # --------------------------------------------------------------
+        # Dedicated underground storage bus
+        # --------------------------------------------------------------
+        n.add(
+            "Bus",
+            uhs_bus,
+            carrier="H2",
+            x=lon,
+            y=lat,
+        )
+
+        # --------------------------------------------------------------
+        # Underground H2 reservoir
+        # h2_capacity_gwh is working gas capacity
+        # --------------------------------------------------------------
+        n.add(
+            "Store",
+            f"{site_id} H2 UHS",
+            bus=uhs_bus,
+            carrier="H2 UHS",
+            e_nom_extendable=True,
+            e_nom_max=float(site["h2_capacity_gwh"]) * 1e3,
+            e_cyclic=True,
+            capital_cost=float(
+                site["storage_capital_cost_eur_per_mwh_a"]
+            ),
+        )
+
+        # --------------------------------------------------------------
+        # Injection
+        #
+        # bus0 = network H2
+        # bus1 = underground reservoir
+        # bus2 = electricity consumed by compression
+        # --------------------------------------------------------------
+        n.add(
+            "Link",
+            f"{site_id} H2 injection",
+            bus0=h2_bus,
+            bus1=uhs_bus,
+            bus2=ac_bus,
+            carrier="H2 UHS injection",
+            p_nom_extendable=True,
+            p_nom_max=float(site["injection_mw"]),
+            efficiency=float(site["injection_efficiency"]),
+            efficiency2=-float(
+                site["injection_electricity_mwh_per_mwh_h2"]
+            ),
+            capital_cost=float(
+                site["injection_capital_cost_eur_per_mw_a"]
+            ),
+        )
+
+        # --------------------------------------------------------------
+        # Withdrawal
+        #
+        # bus0 = underground reservoir
+        # bus1 = network H2
+        # bus2 = electricity consumed by compression
+        # --------------------------------------------------------------
+        n.add(
+            "Link",
+            f"{site_id} H2 withdrawal",
+            bus0=uhs_bus,
+            bus1=h2_bus,
+            bus2=ac_bus,
+            carrier="H2 UHS withdrawal",
+            p_nom_extendable=True,
+            p_nom_max=float(site["withdrawal_mw"]),
+            efficiency=float(site["withdrawal_efficiency"]),
+            efficiency2=-float(
+                site["withdrawal_electricity_mwh_per_mwh_h2"]
+            ),
+            capital_cost=float(
+                site["withdrawal_capital_cost_eur_per_mw_a"]
+            ),
+        )
+
+        # Optional seasonal operation
+        if seasonal_operation.get("enabled", False):
+
+            withdrawal_months = set(
+                int(m)
+                for m in seasonal_operation.get(
+                    "withdrawal_months",
+                    [],
+                )
+            )
+
+            months = n.snapshots.month
+
+            injection_profile = pd.Series(
+                (~months.isin(withdrawal_months)).astype(float),
+                index=n.snapshots,
+            )
+
+            withdrawal_profile = pd.Series(
+                months.isin(withdrawal_months).astype(float),
+                index=n.snapshots,
+            )
+
+            injection_link = f"{site_id} H2 injection"
+            withdrawal_link = f"{site_id} H2 withdrawal"
+
+            n.links_t.p_max_pu[injection_link] = injection_profile
+            n.links_t.p_max_pu[withdrawal_link] = withdrawal_profile
+
+            logger.info(
+                "Applied seasonal UHS operation to %s: withdrawal months %s",
+                site_id,
+                sorted(withdrawal_months),
+            )
 
 def define_spatial(nodes: list, options: dict) -> SimpleNamespace:
     """
@@ -3984,8 +4189,18 @@ if __name__ == "__main__":
     if snakemake.params.water_costs:
         add_custom_water_cost(n)
 
+    uhs_config = snakemake.config.get("uhs", {})
+    if uhs_config.get("enabled", False):
+        add_uhs_sites(
+            n,
+            sites_path=uhs_config["sites"],
+            planning_year=snakemake.wildcards.planning_horizons,
+            seasonal_operation=uhs_config.get("seasonal_operation", {}),
+        )
+
     sanitize_carriers(n, snakemake.config)
     sanitize_locations(n)
+  
 
     n.export_to_netcdf(snakemake.output[0])
 
